@@ -27,7 +27,7 @@ if(BUILD_MIKMOD_APP)
 endif()
 
 if(BUILD_MIKTEST)
-    add_subdirectory(miktest)
+    add_subdirectory(libmikmod/examples)
 endif()
 
 message(STATUS "----------------------------------------")
