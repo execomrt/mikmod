@@ -122,6 +122,7 @@ cmake_dependent_option(ENABLE_NAS "Include the Network Audio System driver" OFF 
 cmake_dependent_option(ENABLE_COREAUDIO "Include the CoreAudio driver" ON "APPLE" OFF)
 cmake_dependent_option(ENABLE_DSOUND "Include the DirectSound driver" ON "WIN32" OFF)
 cmake_dependent_option(ENABLE_WINMM "Include the Windows MCI driver" ON "WIN32" OFF)
+cmake_dependent_option(ENABLE_WASAPI "Include the WASAPI driver" ON "WIN32" OFF)
 cmake_dependent_option(ENABLE_XAUDIO2 "Include the XAudio2 driver" OFF "WIN32" OFF)
 cmake_dependent_option(ENABLE_XAUDIO28 "Use XAudio2.8 for Windows8 instead of XAudio2.7" OFF "WIN32" OFF)
 cmake_dependent_option(ENABLE_STDOUT "Support for output to stdout" ON "UNIX" OFF)
@@ -334,6 +335,7 @@ SET (MIKMOD_LIB_MODULES
     drivers/drv_wav.c
     drivers/drv_win.c
     drivers/drv_xaudio2.c
+    drivers/drv_wasapi.c
     loaders/load_669.c
     loaders/load_amf.c
     loaders/load_asy.c
@@ -707,6 +709,15 @@ IF (ENABLE_WINMM)
     SET(LIBRARY_LIB "${LIBRARY_LIB} -lwinmm")
 ENDIF()
 
+
+IF (ENABLE_WASAPI)
+    SET (DRV_WASAPI 1)
+    MESSAGE(WARNING "WASAPI is enabled")
+    LIST (APPEND EXTRA_LIBS "mmdevapi" "ole32" "uuid")
+    SET(LIBRARY_LIB "${LIBRARY_LIB} -lmmdevapi -lole32 -luuid")
+ENDIF()
+
+
 IF (ENABLE_DSOUND)
     CHECK_INCLUDE_FILE("dsound.h" HAVE_DSOUND_H)
     IF (HAVE_DSOUND_H)
@@ -803,11 +814,11 @@ STRING(STRIP "${LIBRARY_LIB}" LIBRARY_LIB)
 CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/libmikmod-config.in" "${PROJECT_BINARY_DIR}/libmikmod-config" @ONLY)
 CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/libmikmod.pc.in" "${PROJECT_BINARY_DIR}/libmikmod.pc" @ONLY)
 
+list(REMOVE_DUPLICATES EXTRA_LIBS)
 FOREACH (TGT ${LIBMIKMOD_TARGETS})
-    TARGET_LINK_LIBRARIES ("${TGT}"
-        ${EXTRA_LIBS})
-    INCLUDE_DIRECTORIES(AFTER ${ALSA_INCLUDE_DIRS} ${OPENAL_INCLUDE_DIR} ${SDL_INCLUDE_DIR})
-ENDFOREACH (TGT)
+    target_link_libraries(${TGT} PUBLIC ${EXTRA_LIBS})
+    target_include_directories(${TGT} PRIVATE ${ALSA_INCLUDE_DIRS} ${OPENAL_INCLUDE_DIR} ${SDL_INCLUDE_DIR})
+ENDFOREACH ()
 
 INSTALL(
     TARGETS ${LIBMIKMOD_TARGETS}

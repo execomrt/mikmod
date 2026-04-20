@@ -28,6 +28,9 @@
 /* Define if the Windows DirectSound driver is compiled */
 #undef DRV_DS
 
+/* Define if the Windows Audio Session API driver is compiled */
+#undef DRV_WASAPI
+
 /* Define if the Enlightened Sound Daemon driver is compiled */
 #undef DRV_ESD
 

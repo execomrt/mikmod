@@ -55,6 +55,8 @@
 #cmakedefine DRV_DS 1
 /* Define if the Windows MCI driver is compiled */
 #cmakedefine DRV_WIN 1
+/* Define if the Windows Audio Session API driver is compiled */
+#cmakedefine DRV_WASAPI 1
 /* Define if the Windows XAudio2 driver is compiled */
 #cmakedefine DRV_XAUDIO2 1
 /* Define if using XAudio 2.8 for Windows8 with XAudio2 driver */

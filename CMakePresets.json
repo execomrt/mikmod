@@ -36,6 +36,7 @@
         "BUILD_MIKMOD_APP": "OFF",
         "ENABLE_SHARED": "OFF",
         "ENABLE_DOC": "OFF"
+
         
       }
     },
@@ -64,9 +65,11 @@
         "value": "x64"
       },
       "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "Release",
+        "CMAKE_CONFIGURATION_TYPES": "Debug",
         "ENABLE_SIMD": "ON",
-        "ENABLE_SIMD_AVX2": "ON"
+        "ENABLE_WINMM": "ON",
+        "ENABLE_WASAPI": "ON",
+        "ENABLE_XAUDIO28": "ON"
       }
     },
     {

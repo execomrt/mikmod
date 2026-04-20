@@ -970,6 +970,13 @@ then
 	LIBRARY_LIB="-ldsound $LIBRARY_LIB"
 fi
 
+if test $libmikmod_driver_wasapi = yes
+then
+	libmikmod_driverlist="wasapi $libmikmod_driverlist"
+	AC_DEFINE([DRV_WASAPI], 1, [Define if the Windows Audio Session API driver is compiled])
+	LIBRARY_LIB="-ldwasapi $LIBRARY_LIB"
+fi
+
 if test $libmikmod_driver_xaudio2 = yes
 then
 	libmikmod_driverlist="xaudio2 $libmikmod_driverlist"

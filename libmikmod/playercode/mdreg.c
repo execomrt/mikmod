@@ -93,15 +93,22 @@ static void _mm_registeralldrivers(void)
 #ifdef DRV_OS2
 	_mm_registerdriver(&drv_os2);
 #endif
+#ifdef DRV_WASAPI
+	_mm_registerdriver(&drv_wasapi);
+#endif
+
 #ifdef DRV_XAUDIO2
 	_mm_registerdriver(&drv_xaudio2);
 #endif
+
 #ifdef DRV_DS
 	_mm_registerdriver(&drv_ds);
 #endif
+
 #ifdef DRV_WIN
 	_mm_registerdriver(&drv_win);
 #endif
+
 #ifdef DRV_MAC
 	_mm_registerdriver(&drv_mac);
 #endif
