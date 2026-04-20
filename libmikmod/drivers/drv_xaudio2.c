@@ -288,7 +288,7 @@ static int XAudio2_Init(void) {
 	if ((UpdateBufferHandle = CreateThread(NULL, 0, UpdateBufferProc, NULL, CREATE_SUSPENDED, &thread_id)) == NULL) {
 		goto fail;
 	}
-#if defined HAVE_SSE2
+#if defined MIKMOD_SIMD
 	/* this test only works on Windows XP or later */
 	if (IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) {
 		md_mode|=DMODE_SIMDMIXER;

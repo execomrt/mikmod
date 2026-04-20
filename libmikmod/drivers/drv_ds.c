@@ -273,7 +273,7 @@ static int DS_Init(void)
 		return 1;
 	}
 
-#if defined HAVE_SSE2
+#if defined MIKMOD_SIMD
 	/* this test only works on Windows XP or later */
 	if (IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) {
 		md_mode|=DMODE_SIMDMIXER;

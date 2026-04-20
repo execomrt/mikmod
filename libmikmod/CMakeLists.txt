@@ -135,6 +135,7 @@ option(ENABLE_SDL "Include the SDL driver" OFF)
 option(ENABLE_AIFF "Support for output to an .aiff file" ON)
 option(ENABLE_WAV "Support for output to a .wav file" ON)
 option(ENABLE_RAW "Support for output raw pcm data to a file" ON)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "DOS")
     option(ENABLE_DOS "Support for DOS" ON)
 else()
@@ -152,7 +153,7 @@ cmake_dependent_option(ENABLE_THREADS "build a thread-safe version of libmikmod"
 option(DISABLE_DEPACKERS "Exclude support for module depackers" OFF)
 option(DISABLE_HQMIXER "Exclude support for high quality mixer" OFF)
 
-option(ENABLE_SIMD "Use SIMD (AltiVec or SSE2) optimizations (UNSTABLE!!!)" OFF)
+option(ENABLE_SIMD "Use SIMD optimizations" OFF)
 option(ENABLE_RPATH "Whether to use RPATH when linking" ${USE_RPATH_DEFAULT})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "DOS")

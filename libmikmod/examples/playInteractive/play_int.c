@@ -143,8 +143,8 @@ int main(int argc, char* argv[])
     print_driver_details();
     prompt_driver_selection();
 
-    md_mode = DMODE_SOFT_MUSIC;
-    md_mixfreq = 22050;
+    md_mode = DMODE_SOFT_MUSIC | DMODE_STEREO;
+    md_mixfreq = 44100;
     md_volume = 128;
     md_musicvolume = g_volume;
 

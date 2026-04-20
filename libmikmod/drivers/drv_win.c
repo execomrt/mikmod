@@ -167,7 +167,7 @@ static int WIN_Init(void)
 	}
 
 	md_mode|=DMODE_SOFT_MUSIC|DMODE_SOFT_SNDFX;
-#if defined HAVE_SSE2
+#if defined MIKMOD_SIMD
 	/* This test only works on Windows XP or later */
 	if (IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) {
 		md_mode|=DMODE_SIMDMIXER;
