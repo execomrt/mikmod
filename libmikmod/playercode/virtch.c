@@ -115,272 +115,22 @@ static	SLONG *RVbufL1=NULL,*RVbufL2=NULL,*RVbufL3=NULL,*RVbufL4=NULL,
 static	SLONG *RVbufR1=NULL,*RVbufR2=NULL,*RVbufR3=NULL,*RVbufR4=NULL,
 		      *RVbufR5=NULL,*RVbufR6=NULL,*RVbufR7=NULL,*RVbufR8=NULL;
 
-#ifdef NATIVE_64BIT_INT
-#define NATIVE SLONGLONG
-#else
-#define NATIVE SLONG
-#endif
-typedef SSIZE_T MIXIDX;
+
 
 #if defined VIRTCH_HAVE_SIMD
+/* Index type */
+#define VIRTCH_SIMD_MIXIDX MIXIDX
 
-static MIXIDX MixSIMDMonoNormal(const SWORD* srce,SLONG* dest,SSIZE_T idx,SSIZE_T increment, long numSamples)
-{
-	/* TODO: */
-	SWORD sample;
-	SLONG lvolsel = vnf->lvolsel;
+/* Direct sample fetch (no interpolation) */
+#define VIRTCH_SIMD_FETCH_SAMPLE(srce, idx) \
+    ((srce)[(idx) >> FRACBITS])
 
-	while(numSamples--) {
-		sample = srce[idx >> FRACBITS];
-		idx += increment;
+/* No tail state to update in standard mixer */
+#define VIRTCH_SIMD_UPDATE_TAIL(sample) \
+    do { (void)(sample); } while (0)
 
-		*dest++ += lvolsel * sample;
-	}
-	return idx;
-}
+#include "virtch_simd.h"
 
-
-static MIXIDX MixStereoNormal_C(const SWORD* srce, SLONG* dest,
- MIXIDX idx, MIXIDX increment, SLONG numSamples)
-{
-	SWORD sample;
-	SLONG lvolsel = vnf->lvolsel;
-	SLONG rvolsel = vnf->rvolsel;
-
-	while(numSamples--) {
-		sample = srce[idx >> FRACBITS];
-		idx += increment;
-
-		*dest++ += lvolsel * sample;
-		*dest++ += rvolsel * sample;
-	}
-
-	return idx;
-}
-
-#if defined(VIRTCH_HAVE_SSE2)
-static MIXIDX MixStereoNormal_SSE2(const SWORD* srce, SLONG* dest,
- MIXIDX idx, MIXIDX increment, SLONG numSamples)
-{
-	SWORD vol[8] = {vnf->lvolsel, vnf->rvolsel};
-	SWORD sample;
-	SLONG remain = numSamples;
-
-	while(!IS_ALIGNED_16(dest)) {
-		sample=srce[idx >> FRACBITS];
-		idx += increment;
-		*dest++ += vol[0] * sample;
-		*dest++ += vol[1] * sample;
-		numSamples--;
-		if(!numSamples) return idx;
-	}
-
-	remain = numSamples&3;
-	{
-		__m128i v0 = _mm_set_epi16(0, vol[1],
-					   0, vol[0],
-					   0, vol[1],
-					   0, vol[0]);
-		for(numSamples>>=2;numSamples; numSamples--)
-		{
-			SWORD s0 = srce[idx >> FRACBITS];
-			SWORD s1 = srce[(idx += increment) >> FRACBITS];
-			SWORD s2 = srce[(idx += increment) >> FRACBITS];
-			SWORD s3 = srce[(idx += increment) >> FRACBITS];
-			__m128i v1 = _mm_set_epi16(0, s1, 0, s1, 0, s0, 0, s0);
-			__m128i v2 = _mm_set_epi16(0, s3, 0, s3, 0, s2, 0, s2);
-			__m128i v3 = _mm_load_si128((__m128i*)(dest+0));
-			__m128i v4 = _mm_load_si128((__m128i*)(dest+4));
-			_mm_store_si128((__m128i*)(dest+0), _mm_add_epi32(v3, _mm_madd_epi16(v0, v1)));
-			_mm_store_si128((__m128i*)(dest+4), _mm_add_epi32(v4, _mm_madd_epi16(v0, v2)));
-			dest+=8;
-			idx += increment;
-		}
-	}
-
-	while(remain--) {
-		sample=srce[idx >> FRACBITS];
-		idx += increment;
-
-		*dest++ += vol[0] * sample;
-		*dest++ += vol[1] * sample;
-	}
-	return idx;
-}
-#endif
-
-#if defined(VIRTCH_HAVE_AVX2)
-static MIXIDX MixStereoNormal_AVX2(const SWORD* srce, SLONG* dest,
- MIXIDX idx, MIXIDX increment, SLONG numSamples)
-{
-	SWORD sample;
-	SLONG remain = numSamples;
-
-	while (((uintptr_t)dest & 31) != 0) {
-		sample = srce[idx >> FRACBITS];
-		idx += increment;
-		*dest++ += vnf->lvolsel * sample;
-		*dest++ += vnf->rvolsel * sample;
-		if (!--numSamples) return idx;
-	}
-
-	remain = numSamples & 7;
-
-	{
-		__m256i vol = _mm256_set_epi16(
-			0, vnf->rvolsel, 0, vnf->lvolsel,
-			0, vnf->rvolsel, 0, vnf->lvolsel,
-			0, vnf->rvolsel, 0, vnf->lvolsel,
-			0, vnf->rvolsel, 0, vnf->lvolsel);
-
-		for (numSamples >>= 3; numSamples; --numSamples) {
-			SWORD s0 = srce[idx >> FRACBITS];
-			SWORD s1 = srce[(idx += increment) >> FRACBITS];
-			SWORD s2 = srce[(idx += increment) >> FRACBITS];
-			SWORD s3 = srce[(idx += increment) >> FRACBITS];
-			SWORD s4 = srce[(idx += increment) >> FRACBITS];
-			SWORD s5 = srce[(idx += increment) >> FRACBITS];
-			SWORD s6 = srce[(idx += increment) >> FRACBITS];
-			SWORD s7 = srce[(idx += increment) >> FRACBITS];
-
-			__m256i samp01 = _mm256_set_epi16(
-				0, s3, 0, s3, 0, s2, 0, s2,
-				0, s1, 0, s1, 0, s0, 0, s0);
-
-			__m256i samp23 = _mm256_set_epi16(
-				0, s7, 0, s7, 0, s6, 0, s6,
-				0, s5, 0, s5, 0, s4, 0, s4);
-
-			__m256i d0 = _mm256_load_si256((__m256i*)(dest + 0));
-			__m256i d1 = _mm256_load_si256((__m256i*)(dest + 8));
-
-			d0 = _mm256_add_epi32(d0, _mm256_madd_epi16(vol, samp01));
-			d1 = _mm256_add_epi32(d1, _mm256_madd_epi16(vol, samp23));
-
-			_mm256_store_si256((__m256i*)(dest + 0), d0);
-			_mm256_store_si256((__m256i*)(dest + 8), d1);
-
-			dest += 16;
-			idx += increment;
-		}
-	}
-
-	while (remain--) {
-		sample = srce[idx >> FRACBITS];
-		idx += increment;
-		*dest++ += vnf->lvolsel * sample;
-		*dest++ += vnf->rvolsel * sample;
-	}
-
-	return idx;
-}
-#endif
-
-#if defined(VIRTCH_HAVE_ALTIVEC)
-static MIXIDX MixStereoNormal_ALTIVEC(const SWORD* srce, SLONG* dest,
- MIXIDX idx, MIXIDX increment, SLONG numSamples)
-{
-	SWORD vol[8] = {vnf->lvolsel, vnf->rvolsel};
-	SWORD sample;
-	SLONG remain = numSamples;
-
-	while(!IS_ALIGNED_16(dest)) {
-		sample=srce[idx >> FRACBITS];
-		idx += increment;
-		*dest++ += vol[0] * sample;
-		*dest++ += vol[1] * sample;
-		numSamples--;
-		if(!numSamples) return idx;
-	}
-
-	remain = numSamples&3;
-	{
-		SWORD s[8];
-		vector signed short r0 = vec_ld(0, vol);
-		vector signed short v0 = vec_perm(r0, r0, (vector unsigned char)(0, 1,
-										 0, 1,
-										 2, 3,
-										 2, 1,
-										 0, 1,
-										 0, 1,
-										 2, 3,
-										 2, 3));
-
-		for(numSamples>>=2;numSamples; numSamples--)
-		{
-			vector short int r1;
-			vector signed short v1, v2;
-			vector signed int v3, v4, v5, v6;
-
-			s[0] = srce[idx >> FRACBITS];
-			s[1] = srce[(idx += increment) >> FRACBITS];
-			s[2] = srce[(idx += increment) >> FRACBITS];
-			s[3] = srce[(idx += increment) >> FRACBITS];
-			s[4] = 0;
-
-			r1 = vec_ld(0, s);
-			v1 = vec_perm(r1, r1, (vector unsigned char)
-								(0*2, 0*2+1,
-								 4*2, 4*2+1,
-								 0*2, 0*2+1,
-								 4*2, 4*2+1,
-								 1*2, 1*2+1,
-								 4*2, 4*2+1,
-								 1*2, 1*2+1,
-								 4*2, 4*2+1));
-			v2 = vec_perm(r1, r1, (vector unsigned char)
-								(2*2, 2*2+1,
-								 4*2, 4*2+1,
-								 2*2, 2*2+1,
-								 4*2, 4*2+1,
-								 3*2, 3*2+1,
-								 4*2, 4*2+1,
-								 3*2, 3*2+1,
-								 4*2, 4*2+1));
-
-			v3 = vec_ld(0, dest);
-			v4 = vec_ld(0, dest + 4);
-			v5 = vec_mule(v0, v1);
-			v6 = vec_mule(v0, v2);
-
-			vec_st(vec_add(v3, v5), 0, dest);
-			vec_st(vec_add(v4, v6), 0x10, dest);
-
-			dest+=8;
-			idx += increment;
-		}
-	}
-
-	while(remain--) {
-		sample=srce[idx >> FRACBITS];
-		idx += increment;
-
-		*dest++ += vol[0] * sample;
-		*dest++ += vol[1] * sample;
-	}
-	return idx;
-}
-#endif
-
-static MIXIDX MixStereoNormal_SIMD(const SWORD* srce, SLONG* dest,
-	MIXIDX idx, MIXIDX increment, SLONG numSamples)
-{
-#if defined(VIRTCH_HAVE_AVX2)
-	return MixStereoNormal_AVX2(srce, dest, idx, increment, numSamples);
-#elif defined(VIRTCH_HAVE_SSE2)
-	return MixStereoNormal_SSE2(srce, dest, idx, increment, numSamples);
-#elif defined(VIRTCH_HAVE_ALTIVEC)
-	return MixStereoNormal_ALTIVEC(srce, dest, idx, increment, numSamples);
-#else
-	return MixStereoNormal_C(srce, dest, idx, increment, numSamples);
-#endif
-}
-
-
-static SSIZE_T MixSIMDStereoNormal(const SWORD* srce,SLONG* dest,SSIZE_T idx,SSIZE_T increment,SSIZE_T numSamples)
-{
-  return MixStereoNormal_SIMD(srce, dest, idx, increment, numSamples);
-}
 #endif
 
 /*========== 32 bit sample mixers - only for 32 bit platforms */
@@ -1162,8 +912,8 @@ static void AddChannel(SLONG* ptr,NATIVE numSamples)
 
 		endpos=vnf->current+done*vnf->increment;
 
-		if(vnf->vol) {
-
+				if(vnf->vol) {
+#ifndef NATIVE_64BIT_INT
 			/* use the 32 bit mixers as often as we can (they're much faster) */
 			if((vnf->current<0x7fffffff)&&(endpos<0x7fffffff)) {
 				if((md_mode & DMODE_INTERP)) {
@@ -1197,7 +947,7 @@ static void AddChannel(SLONG* ptr,NATIVE numSamples)
 								   (s,ptr,vnf->current,vnf->increment,done);
 			}
 			else
-
+#endif
 			{
 				if((md_mode & DMODE_INTERP)) {
 					if(vc_mode & DMODE_STEREO) {
