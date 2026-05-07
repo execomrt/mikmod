@@ -720,11 +720,13 @@ static int WASAPI_Init(void)
 
 static void WASAPI_Exit(void)
 {
+    
     if (g_wasapi) {
         audio_device_destroy(g_wasapi);
         g_wasapi = NULL;
     }
     g_started = FALSE;
+    VC_Exit();
 }
 
 static int WASAPI_PlayStart(void)

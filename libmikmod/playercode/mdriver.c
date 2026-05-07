@@ -617,6 +617,7 @@ static int _mm_reset(const CHAR *cmdline)
 		/* md_driver->Reset was NULL, or md_device was changed, so do a full
 		   reset of the driver. */
 		md_driver->Exit();
+		md_driver->SetNumVoices();
 		if(_mm_init(cmdline)) {
 			MikMod_Exit_internal();
 			if(_mm_errno)
