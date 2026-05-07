@@ -50,6 +50,13 @@ target_link_libraries(${MIKMOD_PLAYER_TARGET}
         ${EXTRA_LIBS}
 )
 
+if(MIKMOD_LINKS_STATIC)
+    target_compile_definitions(${MIKMOD_PLAYER_TARGET}
+        PRIVATE
+            MIKMOD_STATIC
+    )
+endif()
+
 set_target_properties(${MIKMOD_PLAYER_TARGET}
     PROPERTIES
         OUTPUT_NAME mikmod

@@ -788,7 +788,6 @@ extern MikMod_callback_t vc_callback;
 /*========== SIMD mixing helper functions =============*/
 
 #if defined(_WIN64)
-#define VIRTCH_HAVE_SSE2 1
 # if defined(_MSC_VER)
 #  define IS_ALIGNED_16(ptr) (!((__int64)(ptr) & 15i64))
 # else /* GCC, etc. */
