@@ -31,7 +31,9 @@ EXTRA_DIST = drv_AF.c     \
 	     drv_stdout.c \
 	     drv_sun.c    \
 	     drv_ultra.c  \
+	     drv_vita.c   \
 	     drv_wav.c    \
+	     drv_wasapi.c \
 	     drv_win.c    \
 	     drv_wss.c    \
 	     drv_xaudio2.c

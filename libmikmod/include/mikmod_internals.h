@@ -759,31 +759,26 @@ extern MikMod_callback_t vc_callback;
 #endif
 
 /*========== SIMD mixing routines */
+#undef HAVE_ALTIVEC
+#undef HAVE_SSE2
 #if defined(MIKMOD_SIMD)
 
-# if (defined(__ppc__) || defined(__ppc64__)) && defined(__VEC__) && !(defined(__GNUC__) && (__GNUC__ < 3))
-#  define VIRTCH_HAVE_ALTIVEC 1
+#if (defined(__ppc__) || defined(__ppc64__)) && defined(__VEC__) && !(defined(__GNUC__) && (__GNUC__ < 3))
+#define HAVE_ALTIVEC
 
-# elif defined(__AVX2__)
-#  define VIRTCH_HAVE_AVX2 1
-#  define VIRTCH_HAVE_SSE2 1
+#elif defined(__GNUC__) && defined(__SSE2__) /* x86 / x86_64 */
+#define HAVE_SSE2
 
-# elif defined(__SSE2__)
-#  define VIRTCH_HAVE_SSE2 1
+#elif defined(_MSC_VER) && (_MSC_VER >= 1300) && (defined(_M_IX86) || defined(_M_AMD64))
+/* FIXME: emmintrin.h requires VC6 processor pack or VC2003+ */
+#define HAVE_SSE2
+/* avoid some warnings */
+#pragma warning(disable:4761)
+#pragma warning(disable:4391)
+#pragma warning(disable:4244)
 
-# elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_AMD64))
-#  define VIRTCH_HAVE_SSE2 1
-
-# elif defined(_MSC_VER) && defined(_M_IX86_FP) && (_M_IX86_FP >= 2)
-#  define VIRTCH_HAVE_SSE2 1
-
-# endif
-
-#if defined VIRTCH_HAVE_SSE2 || defined VIRTCH_HAVE_AVX2 || defined VIRTCH_HAVE_ALTIVEC
-#define VIRTCH_HAVE_SIMD 1
-#endif
-
-#endif
+#endif /* AltiVec/SSE2 */
+#endif /* MIKMOD_SIMD */
 
 /*========== SIMD mixing helper functions =============*/
 
@@ -798,7 +793,7 @@ extern MikMod_callback_t vc_callback;
 #endif
 
 /* Altivec helper function */
-#if defined VIRTCH_HAVE_ALTIVEC
+#if defined HAVE_ALTIVEC
 
 #define simd_m128i vector signed int
 #define simd_m128 vector float
@@ -862,7 +857,7 @@ static inline vector signed int vec_hiqq(vector signed int a) {
 #define PUT_SAMPLE_SIMD_F(dste, v1)  vec_st(v1, 0, dste);
 #define LOAD_PS1_SIMD(ptr) vec_load_ps1(ptr)
 
-#elif defined VIRTCH_HAVE_SSE2
+#elif defined HAVE_SSE2
 
 #include <emmintrin.h>
 
@@ -885,13 +880,9 @@ static __inline __m128i mm_hiqq(const __m128i a) {
 #define simd_m128i __m128i
 #define simd_m128 __m128
 
-#if defined VIRTCH_HAVE_AVX2
-#include <immintrin.h>
 #endif
 
-#endif
-
-#if defined VIRTCH_HAVE_SIMD
+#if defined(HAVE_SSE2) || defined(HAVE_ALTIVEC)
 /* MikMod_amalloc() returns a 16 byte aligned zero-filled
    memory in SIMD-enabled builds.
  - the returned memory can be freed with MikMod_afree()

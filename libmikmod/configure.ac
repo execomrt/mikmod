@@ -111,6 +111,7 @@ libmikmod_driver_osx=$libmikmod_darwin
 libmikmod_driver_mac=no
 libmikmod_driver_win=yes
 libmikmod_driver_ds=yes
+libmikmod_driver_wasapi=yes
 libmikmod_driver_xaudio2=no
 libmikmod_driver_ultra=no
 libmikmod_driver_os2=$libmikmod_os2
@@ -179,6 +180,7 @@ then
   libmikmod_driver_mac=no
   libmikmod_driver_win=no
   libmikmod_driver_ds=no
+  libmikmod_driver_wasapi=no
   libmikmod_driver_xaudio2=no
   libmikmod_driver_ultra=no
   libmikmod_driver_os2=no
@@ -407,21 +409,20 @@ else
   libmikmod_driver_ds=no
 fi])
 
+AC_ARG_ENABLE([wasapi], [AS_HELP_STRING([--enable-wasapi],[Windows only: include WASAPI driver [default=yes]])],
+[if test "$enableval" = "yes"
+then
+  libmikmod_driver_wasapi=yes
+else
+  libmikmod_driver_wasapi=no
+fi])
+
 AC_ARG_ENABLE([xaudio2], [AS_HELP_STRING([--enable-xaudio2],[Windows only: include XAudio2 driver [default=no]])],
 [if test "$enableval" = "yes"
 then
   libmikmod_driver_xaudio2=yes
 else
   libmikmod_driver_xaudio2=no
-fi])
-
-use_xaudio28=no
-AC_ARG_ENABLE([xaudio28], [AS_HELP_STRING([--enable-xaudio28],[Windows only: use XAudio2.8 for Windows8 instead of XAudio2.7 [default=no]])],
-[if test "$enableval" = "yes"
-then
-  use_xaudio28=yes
-else
-  use_xaudio28=no
 fi])
 
 AC_ARG_ENABLE([os2], [AS_HELP_STRING([--enable-os2],[OS/2 only: include the OS/2 MCI driver [guessed]])],
@@ -785,30 +786,31 @@ case $host_os in
 		libmikmod_driver_ds=no
 		AC_CHECK_HEADERS([dsound.h],[libmikmod_driver_ds=yes],[],[#include <windows.h>])
 	fi
+	if test $libmikmod_driver_wasapi = yes
+	then
+		libmikmod_driver_wasapi=no
+		AC_CHECK_HEADERS([mmdeviceapi.h],[libmikmod_driver_wasapi=yes],[],[#include <windows.h>])
+		AC_CHECK_HEADERS([audioclient.h],[],[libmikmod_driver_wasapi=no], [#include <windows.h>])
+	fi
 	if test $libmikmod_driver_xaudio2 = yes
 	then
 		libmikmod_driver_xaudio2=no
+		use_xaudio28=no
 		ac_save_CPPFLAGS=$CPPFLAGS
-		if test $use_xaudio28 = yes
-		then
-			CPPFLAGS="$CPPLAGS -D_WIN32_WINNT=0x0602"
-		fi
+		CPPFLAGS="$CPPLAGS -D_WIN32_WINNT=0x0602"
 		AC_CHECK_HEADERS([xaudio2.h],[libmikmod_driver_xaudio2=yes])
 		if test $libmikmod_driver_xaudio2 = yes
 		then
-			AC_CACHE_CHECK([if XAUDIO2_VOICE_NOSAMPLESPLAYED is defined],[libmikmod_cv_xaudio2_7_header],
+			AC_CACHE_CHECK([if xaudio2.h is version 2.8 or greater],[libmikmod_cv_xaudio2_8_header],
 			 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 					[[#include <xaudio2.h>]],
 					[int flag=XAUDIO2_VOICE_NOSAMPLESPLAYED;])],
-					[libmikmod_cv_xaudio2_7_header=yes],
-					[libmikmod_cv_xaudio2_7_header=no])])
-			if test $libmikmod_cv_xaudio2_7_header = yes && test $use_xaudio28 = yes
+					[libmikmod_cv_xaudio2_8_header=yes],
+					[libmikmod_cv_xaudio2_8_header=no])])
+			if test $libmikmod_cv_xaudio2_8_header = yes
 			then
-			  AC_MSG_WARN([xaudio2.h <= 2.7 and xaudio2.8 enabled - build will likely fail.])
-			fi
-			if test $libmikmod_cv_xaudio2_7_header = no && test $use_xaudio28 != yes
-			then
-			  AC_MSG_WARN([xaudio2.h >= 2.8 and xaudio2.8 disabled - build will likely fail.])
+			  AC_MSG_NOTICE([Enabling Xaudio2 2.8])
+			  use_xaudio28=yes
 			fi
 		fi
 		CPPFLAGS=$ac_save_CPPFLAGS
@@ -817,6 +819,7 @@ case $host_os in
 
  *)	libmikmod_driver_win=no
 	libmikmod_driver_ds=no
+	libmikmod_driver_wasapi=no
 	libmikmod_driver_xaudio2=no
 	;;
 esac
@@ -973,8 +976,8 @@ fi
 if test $libmikmod_driver_wasapi = yes
 then
 	libmikmod_driverlist="wasapi $libmikmod_driverlist"
-	AC_DEFINE([DRV_WASAPI], 1, [Define if the Windows Audio Session API driver is compiled])
-	LIBRARY_LIB="-ldwasapi $LIBRARY_LIB"
+	AC_DEFINE([DRV_WASAPI], 1, [Define if the Windows WASAPI driver is compiled])
+	LIBRARY_LIB="-lole32 $LIBRARY_LIB"
 fi
 
 if test $libmikmod_driver_xaudio2 = yes
@@ -986,6 +989,7 @@ then
 	then
 		AC_DEFINE([DRV_XAUDIO28],1,[Define if using XAudio 2.8 for Windows8 with XAudio2 driver])
 		LIBRARY_LIB="-lxaudio2_8 $LIBRARY_LIB"
+		CPPFLAGS="$CPPLAGS -D_WIN32_WINNT=0x0602"
 	fi
 fi
 

@@ -53,9 +53,7 @@
 #include <basetyps.h> /* guiddef.h not in all SDKs, e.g. mingw.org */
 #endif
 
-#if !defined(__cplusplus) && !defined(CINTERFACE)
 #define CINTERFACE
-#endif
 #include <dsound.h>
 
 #ifdef __WATCOMC__
@@ -273,7 +271,7 @@ static int DS_Init(void)
 		return 1;
 	}
 
-#if defined MIKMOD_SIMD
+#if defined HAVE_SSE2
 	/* this test only works on Windows XP or later */
 	if (IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) {
 		md_mode|=DMODE_SIMDMIXER;

@@ -1,4 +1,4 @@
-# Copyright (c) 2012, 2026 Shlomi Fish
+# Copyright (c) 2012 Shlomi Fish
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -121,10 +121,9 @@ cmake_dependent_option(ENABLE_NAS "Include the Network Audio System driver" OFF 
 #cmake_dependent_option(ENABLE_AF "Include the DEC AudioFile server (AF) driver" OFF "UNIX;NOT APPLE" OFF)
 cmake_dependent_option(ENABLE_COREAUDIO "Include the CoreAudio driver" ON "APPLE" OFF)
 cmake_dependent_option(ENABLE_DSOUND "Include the DirectSound driver" ON "WIN32" OFF)
-cmake_dependent_option(ENABLE_WINMM "Include the Windows MCI driver" ON "WIN32" OFF)
 cmake_dependent_option(ENABLE_WASAPI "Include the WASAPI driver" ON "WIN32" OFF)
+cmake_dependent_option(ENABLE_WINMM "Include the Windows MCI driver" ON "WIN32" OFF)
 cmake_dependent_option(ENABLE_XAUDIO2 "Include the XAudio2 driver" OFF "WIN32" OFF)
-cmake_dependent_option(ENABLE_XAUDIO28 "Use XAudio2.8 for Windows8 instead of XAudio2.7" OFF "WIN32" OFF)
 cmake_dependent_option(ENABLE_STDOUT "Support for output to stdout" ON "UNIX" OFF)
 cmake_dependent_option(ENABLE_PIPE "Support for output via a pipe to another command" ON "UNIX" OFF)
 cmake_dependent_option(ENABLE_AIX "Include the AIX audio driver" ON "SYS_AIX" OFF)
@@ -137,33 +136,15 @@ option(ENABLE_AIFF "Support for output to an .aiff file" ON)
 option(ENABLE_WAV "Support for output to a .wav file" ON)
 option(ENABLE_RAW "Support for output raw pcm data to a file" ON)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "DOS")
-    option(ENABLE_DOS "Support for DOS" ON)
-else()
-    option(ENABLE_DOS "Support for DOS" OFF)
-endif()
-
-if(ENABLE_DOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "DOS")
-    message(WARNING "ENABLE_DOS is ignored for non-DOS targets.")
-    set(ENABLE_DOS OFF)
-endif()
-
 cmake_dependent_option(ENABLE_DL "Load ALSA, PulseAudio or EsounD drivers at runtime" ON "ENABLE_ALSA OR ENABLE_PULSE OR ENABLE_ESD" OFF)
 cmake_dependent_option(ENABLE_THREADS "build a thread-safe version of libmikmod" ON "UNIX" OFF) # only for pthreads.
 
 option(DISABLE_DEPACKERS "Exclude support for module depackers" OFF)
 option(DISABLE_HQMIXER "Exclude support for high quality mixer" OFF)
 
-option(ENABLE_SIMD "Use SIMD optimizations" OFF)
+option(ENABLE_SIMD "Use SIMD (AltiVec or SSE2) optimizations (UNSTABLE!!!)" OFF)
 option(ENABLE_RPATH "Whether to use RPATH when linking" ${USE_RPATH_DEFAULT})
-
-if(CMAKE_SYSTEM_NAME STREQUAL "DOS")
-    option(ENABLE_SHARED "Whether to build the shared library" OFF)
-else()
-    option(ENABLE_SHARED "Whether to build the shared library" ON)
-endif()
-
-
+option(ENABLE_SHARED "Whether to build the shared library" ON)
 option(ENABLE_STATIC "Whether to build the static library" ON)
 
 IF (NOT ENABLE_STATIC AND NOT ENABLE_SHARED)
@@ -333,9 +314,9 @@ SET (MIKMOD_LIB_MODULES
     drivers/drv_ultra.c
     drivers/drv_vita.c
     drivers/drv_wav.c
+    drivers/drv_wasapi.c
     drivers/drv_win.c
     drivers/drv_xaudio2.c
-    drivers/drv_wasapi.c
     loaders/load_669.c
     loaders/load_amf.c
     loaders/load_asy.c
@@ -380,17 +361,6 @@ SET (MIKMOD_LIB_MODULES
     playercode/virtch2.c
     playercode/virtch_common.c
 )
-
-if(ENABLE_DOS)
-    file(GLOB MIKMOD_DOS_DRIVER_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/drivers/dos/*.c"
-    )
-
-    list(APPEND MIKMOD_LIB_MODULES
-        drivers/drv_sb.c
-        ${MIKMOD_DOS_DRIVER_SOURCES}
-    )
-endif()
 
 SET (LIBMIKMOD_TARGETS)
 
@@ -468,10 +438,6 @@ ENDIF()
 IF (ENABLE_DL)
   SET(MIKMOD_DYNAMIC 1)
 ENDIF()
-if (ENABLE_DOS)
-  SET(DRV_SB 1)
-  add_definitions(-DDRV_SB)
-endif()
 
 SET(LIBRARY_LIB )
 SET(EXTRA_LIBS )
@@ -709,15 +675,6 @@ IF (ENABLE_WINMM)
     SET(LIBRARY_LIB "${LIBRARY_LIB} -lwinmm")
 ENDIF()
 
-
-IF (ENABLE_WASAPI)
-    SET (DRV_WASAPI 1)
-    MESSAGE(WARNING "WASAPI is enabled")
-    LIST (APPEND EXTRA_LIBS "mmdevapi" "ole32" "uuid")
-    SET(LIBRARY_LIB "${LIBRARY_LIB} -lmmdevapi -lole32 -luuid")
-ENDIF()
-
-
 IF (ENABLE_DSOUND)
     CHECK_INCLUDE_FILE("dsound.h" HAVE_DSOUND_H)
     IF (HAVE_DSOUND_H)
@@ -730,19 +687,28 @@ IF (ENABLE_DSOUND)
     ENDIF()
 ENDIF()
 
+IF (ENABLE_WASAPI)
+    CHECK_INCLUDE_FILE(mmdeviceapi.h HAVE_MMDEVICEAPI_H)
+    CHECK_INCLUDE_FILE(audioclient.h HAVE_AUDIOCLIENT_H)
+    IF (HAVE_AUDIOCLIENT_H AND HAVE_MMDEVICEAPI_H)
+      SET (DRV_WASAPI 1)
+      LIST (APPEND EXTRA_LIBS "ole32")
+      SET(LIBRARY_LIB "${LIBRARY_LIB} -lole32")
+    ELSE()
+      SET (ENABLE_WASAPI 0)
+      MESSAGE(WARNING "WASAPI support is disabled.")
+    ENDIF()
+ENDIF()
+
 IF (ENABLE_XAUDIO2)
     SET(OLD_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
-    IF (ENABLE_XAUDIO28)
-      SET(CMAKE_REQUIRED_DEFINITIONS "-D_WIN32_WINNT=0x0602")
-    ENDIF()
+    SET(CMAKE_REQUIRED_DEFINITIONS "-D_WIN32_WINNT=0x0602")
     CHECK_INCLUDE_FILE("xaudio2.h" HAVE_XAUDIO2_H)
-    SET(CMAKE_REQUIRED_DEFINITIONS "${OLD_REQUIRED_DEFINITIONS}")
     IF(HAVE_XAUDIO2_H)
-      CHECK_SYMBOL_EXISTS(XAUDIO2_VOICE_NOSAMPLESPLAYED xaudio2.h XAUDIO2_7_HEADER)
-      IF (XAUDIO2_7_HEADER AND ENABLE_XAUDIO28)
-        MESSAGE(WARNING "xaudio2.h <= 2.7 and xaudio2.8 enabled - build will likely fail.")
-      ELSEIF((NOT XAUDIO2_7_HEADER) AND (NOT ENABLE_XAUDIO28))
-        MESSAGE(WARNING "xaudio2.h >= 2.8 and xaudio2.8 disabled - build will likely fail.")
+      CHECK_SYMBOL_EXISTS(XAUDIO2_VOICE_NOSAMPLESPLAYED xaudio2.h XAUDIO2_8_HEADER)
+      IF (XAUDIO2_8_HEADER)
+        MESSAGE(STATUS "Enabling Xaudio2 2.8")
+        SET (ENABLE_XAUDIO28 1)
       ENDIF()
       SET (DRV_XAUDIO2 1)
       LIST (APPEND EXTRA_LIBS "ole32")
@@ -758,6 +724,7 @@ IF (ENABLE_XAUDIO2)
       SET (ENABLE_XAUDIO28 0)
       MESSAGE(WARNING "XAudio2 support is disabled.")
     ENDIF()
+    SET(CMAKE_REQUIRED_DEFINITIONS "${OLD_REQUIRED_DEFINITIONS}")
 ENDIF()
 
 IF (ENABLE_SDL)
@@ -814,19 +781,11 @@ STRING(STRIP "${LIBRARY_LIB}" LIBRARY_LIB)
 CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/libmikmod-config.in" "${PROJECT_BINARY_DIR}/libmikmod-config" @ONLY)
 CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/libmikmod.pc.in" "${PROJECT_BINARY_DIR}/libmikmod.pc" @ONLY)
 
-list(REMOVE_DUPLICATES EXTRA_LIBS)
-set(LIBMIKMOD_PRIVATE_INCLUDE_DIRS)
-foreach(INCLUDE_DIR ${ALSA_INCLUDE_DIRS} ${OPENAL_INCLUDE_DIR} ${SDL_INCLUDE_DIR})
-    if(INCLUDE_DIR)
-        list(APPEND LIBMIKMOD_PRIVATE_INCLUDE_DIRS "${INCLUDE_DIR}")
-    endif()
-endforeach()
 FOREACH (TGT ${LIBMIKMOD_TARGETS})
-    target_link_libraries(${TGT} PUBLIC ${EXTRA_LIBS})
-    if(LIBMIKMOD_PRIVATE_INCLUDE_DIRS)
-        target_include_directories(${TGT} PRIVATE ${LIBMIKMOD_PRIVATE_INCLUDE_DIRS})
-    endif()
-ENDFOREACH ()
+    TARGET_LINK_LIBRARIES ("${TGT}"
+        ${EXTRA_LIBS})
+    INCLUDE_DIRECTORIES(AFTER ${ALSA_INCLUDE_DIRS} ${OPENAL_INCLUDE_DIR} ${SDL_INCLUDE_DIR})
+ENDFOREACH (TGT)
 
 INSTALL(
     TARGETS ${LIBMIKMOD_TARGETS}
